@@ -1,10 +1,10 @@
 from sublime import Region, INHIBIT_WORD_COMPLETIONS
 import sublime_plugin
-from threading import Timer
 import sys
 import importlib
 import pycompleter.parso.parso as parso
 import os.path
+from time import time
 
 
 def recursive_dict(path, value):
@@ -23,12 +23,13 @@ def generate_full_paths(path, searchpath):
 
 
 class ParsoVisitor:
-    def __init__(self, recursion=1, searchpath=[]):
+    def __init__(self, recursion=1, version="3.6", searchpath=[]):
         self.data = {}
         self.name = None
         self.current = self.data
         self.recursion = recursion
         self.stack = []
+        self.version = version
         self.searchpath = searchpath
 
     def push(self, newcurrent):
@@ -98,6 +99,9 @@ class ParsoVisitor:
     def visit_PythonNode(self, node):
         self.visit_Module(node)
 
+    def visit_IfStmt(self, node):
+        self.visit_Module(node)
+
     def generic_visit(self, node):
         # print("Not parsed:", node)
         pass
@@ -122,40 +126,34 @@ class ParsoVisitor:
         )
         if filename:
             print("Will scan ", filename, subtree)
-            filetree = ast_parser(filename, None, False)
+            filetree = ast_parser(filename, None, False, self.version, self.searchpath)
             for s in subtree:
-                filetree = filetree.get(s, {})
+                filetree = filetree.get(s, (None, {}))[1]
             return filetree
         else:
             print("Could not find import", importpath)
 
 
 def ast_parser(filename, source=None, recurse=True, version="3.6", searchpath=[]):
-    print(__file__)
+    start = time()
     if source is None:
         with open(filename, "r") as fn:
             source = fn.read()
     tree = parso.parse(source, path=filename, version=version, cache=True)
     visitor = ParsoVisitor(recursion=1 * recurse, searchpath=searchpath)
     visitor.visit(tree)
+    end = time()
+    print("Parsing", filename, end - start)
     return visitor.data
 
 
 class pycompleterListener(sublime_plugin.EventListener):
-    def __init__(self):
-        self.errors = {}
-        self.popuptimer = Timer(0.3, lambda: None)
-        self.completions = {}
-
     def build_matches(self, view):
         viewdata = view.substr(Region(0, view.size()))
-        filename = view.file_name() or "-"
+        filename = view.file_name()
 
         version = view.settings().get("pycompleter.version", "3.6")
         searchpath = view.settings().get("pycompleter.path", [])
-
-        print(version)
-        print(searchpath)
 
         data = ast_parser(filename, viewdata, version=version, searchpath=searchpath)
         return data
