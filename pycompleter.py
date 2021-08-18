@@ -20,6 +20,9 @@ def generate_full_paths(path, searchpath):
             trypath = os.path.join(root, "/".join(path[:i])) + ".py"
             if os.path.isfile(trypath):
                 yield trypath, path[i:]
+            trypath = os.path.join(root, "/".join(path[:i]), "__init__.py")
+            if os.path.isfile(trypath):
+                yield trypath, path[i:]
 
 
 class ParsoVisitor:
