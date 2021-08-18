@@ -64,9 +64,10 @@ class ParsoVisitor:
             path_merged = ".".join(path_merged)
             if node.get_path_for_name(name) != path:
                 value = "Import", self.import_parser(path)
-                for i in path:
-                    self.current[name.value] = "Import", recursive_dict(path[1:], value)
-                    self.current[path_merged] = value
+                items = self.current.get(name.value, ("Import", {}))[1]
+                items.update(recursive_dict(path[1:], value))
+                self.current[name.value] = "Import", items
+                self.current[path_merged] = value
             else:
                 self.current[name.value] = (
                     "Import",
