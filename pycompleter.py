@@ -23,7 +23,7 @@ def generate_full_paths(path, searchpath):
 
 
 class ParsoVisitor:
-    def __init__(self, recursion=1, version="3.6", searchpath=[]):
+    def __init__(self, recursion=1, version="3.6", searchpath=[], filename=None):
         self.data = {}
         self.name = None
         self.current = self.data
@@ -31,6 +31,7 @@ class ParsoVisitor:
         self.stack = []
         self.version = version
         self.searchpath = searchpath
+        self.filename = filename
 
     def push(self, newcurrent):
         self.stack.append(self.current)
@@ -121,8 +122,11 @@ class ParsoVisitor:
 
     def import_lib(self, importpath):
         importpath = list(map(lambda x: x.value, importpath))
+        localpath = []
+        if self.filename:
+            localpath = [os.path.dirname(self.filename)]
         filename, subtree = next(
-            generate_full_paths(importpath, self.searchpath), (None, None)
+            generate_full_paths(importpath, localpath + self.searchpath), (None, None)
         )
         if filename:
             print("Will scan ", filename, subtree)
@@ -140,7 +144,9 @@ def ast_parser(filename, source=None, recurse=True, version="3.6", searchpath=[]
         with open(filename, "r") as fn:
             source = fn.read()
     tree = parso.parse(source, path=filename, version=version, cache=True)
-    visitor = ParsoVisitor(recursion=1 * recurse, searchpath=searchpath)
+    visitor = ParsoVisitor(
+        recursion=1 * recurse, searchpath=searchpath, filename=filename
+    )
     visitor.visit(tree)
     end = time()
     print("Parsing", filename, end - start)
